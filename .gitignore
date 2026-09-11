@@ -1,0 +1,27 @@
+# Environment files (every subfolder)
+**/.env
+**/.env.*
+!**/.env.example
+
+# Dependencies
+**/node_modules/
+
+# Build output
+**/dist/
+**/build/
+
+# Hardhat / blockchain
+blockchain/artifacts/
+blockchain/cache/
+blockchain/typechain-types/
+
+# Backend runtime data (keep seed listings)
+backend/data/*.json
+!backend/data/seed-listings.json
+
+# Logs & OS / editor junk
+*.log
+npm-debug.log*
+.DS_Store
+.vscode/
+.idea/

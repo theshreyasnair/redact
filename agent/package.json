@@ -1,0 +1,24 @@
+{
+  "name": "redact-agent",
+  "version": "1.0.0",
+  "description": "Autonomous buyer agent for the Redact research marketplace",
+  "main": "src/agent.js",
+  "scripts": {
+    "start": "node src/agent.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.125.0",
+    "@x402/core": "^2.25.0",
+    "@x402/evm": "^2.25.0",
+    "@x402/fetch": "^2.25.0",
+    "dotenv": "^17.4.2",
+    "ethers": "^6.17.0",
+    "viem": "^2.56.3",
+    "zod": "^4.6.2"
+  },
+  "private": true
+}

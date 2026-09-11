@@ -1,0 +1,22 @@
+# Local pre-push check only. Builds the image, runs with the dev content key,
+# and does NOT mount the dstack socket (there is none outside a TEE), so the
+# server takes the CONTENT_KEY_DEV fallback and reports tee:false.
+#
+# Reuses your .env for the chain vars and adds CONTENT_KEY_DEV.
+#   docker compose -f docker-compose.local.yml up --build
+
+services:
+  redact-backend:
+    build: .
+    image: redact-backend:local
+    ports:
+      - "4021:4021"
+    env_file:
+      - .env
+    environment:
+      - CONTENT_KEY_DEV=local-dev-only-change-me
+    volumes:
+      - redact-data-local:/app/data
+
+volumes:
+  redact-data-local:

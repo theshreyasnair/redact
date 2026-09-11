@@ -1,0 +1,34 @@
+# Redact backend on Phala Cloud (dstack TEE).
+#
+# Environment variables Phala injects at deploy time (encrypted to the CVM),
+# supplied via the env file passed to `phala cvms create -e`:
+#   WALLET_ADDRESS         platform wallet that receives x402 USDC payments
+#   PRIVATE_KEY            backend signer; must be the contract recorder
+#   CONTRACT_ADDRESS       ResearchMarketplace on Base Sepolia
+#   BASE_SEPOLIA_RPC_URL   JSON-RPC endpoint (use a dedicated one in production)
+#   FACILITATOR_URL        x402 facilitator
+#   PORT                   optional; defaults to 4021
+# CONTENT_KEY_DEV is NOT set here. Inside the TEE the content key comes from
+# the dstack socket. CONTENT_KEY_DEV is only for local dev outside a TEE.
+
+services:
+  redact-backend:
+    # Replace with the tag you push to Docker Hub.
+    image: sshreyasnairr/redact-backend:v1
+    restart: unless-stopped
+    ports:
+      - "4021:4021"
+    volumes:
+      # Persist research-store.json and agent-runs.json across restarts.
+      - redact-data:/app/data
+      # dstack guest-agent socket. The SDK reads the content key and quote here.
+      - /var/run/dstack.sock:/var/run/dstack.sock
+    environment:
+      - WALLET_ADDRESS=${WALLET_ADDRESS}
+      - PRIVATE_KEY=${PRIVATE_KEY}
+      - CONTRACT_ADDRESS=${CONTRACT_ADDRESS}
+      - BASE_SEPOLIA_RPC_URL=${BASE_SEPOLIA_RPC_URL}
+      - FACILITATOR_URL=${FACILITATOR_URL}
+
+volumes:
+  redact-data:

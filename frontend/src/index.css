@@ -1,0 +1,212 @@
+@import "tailwindcss";
+
+@theme {
+  --color-ink: #0c0d10;
+  --color-paper: #e8eaf0;
+  --color-accent: #ff7a59;
+  --color-mint: #7fe0b0;
+  --color-line: #1c1e24;
+  --color-line-hover: #33363f;
+  --color-mute: #8a8f9c;
+  --color-dim: #5c6170;
+  --color-hash: #22242a;
+  --color-bad: #b23a3a;
+  --font-serif: "Instrument Serif", Georgia, "Times New Roman", serif;
+  --font-sans: "Inter", system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body {
+  background: var(--color-ink);
+  color: var(--color-paper);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+* {
+  transition-duration: 150ms;
+  transition-timing-function: ease;
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.serif {
+  font-family: var(--font-serif);
+  letter-spacing: -0.01em;
+}
+
+.caps {
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-mute);
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  height: 40px;
+  padding: 0 1rem;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.btn-primary {
+  background: var(--color-accent);
+  color: #0c0d10;
+}
+.btn-primary:not(:disabled):hover {
+  background: #ff8f73;
+}
+.btn-secondary {
+  background: transparent;
+  color: var(--color-paper);
+  border-color: var(--color-line-hover);
+}
+.btn-secondary:not(:disabled):hover {
+  border-color: var(--color-paper);
+}
+.btn-danger {
+  background: transparent;
+  color: var(--color-bad);
+  border-color: rgba(178, 58, 58, 0.5);
+}
+.btn-danger:not(:disabled):hover {
+  border-color: var(--color-bad);
+}
+
+.card {
+  border: 1px solid var(--color-line);
+  border-radius: 8px;
+  background: rgba(12, 13, 16, 0.92);
+  backdrop-filter: blur(2px);
+}
+.card:hover {
+  border-color: var(--color-line-hover);
+}
+
+.field {
+  width: 100%;
+  background: transparent;
+  border: 1px solid var(--color-line-hover);
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-size: 14px;
+  color: var(--color-paper);
+  outline: none;
+}
+.field:focus {
+  border-color: var(--color-accent);
+}
+.field::placeholder {
+  color: var(--color-dim);
+}
+select.field option {
+  background: #0c0d10;
+}
+
+/* Wordmark glyph and the "hidden content" bars on cards. */
+.redaction-bar {
+  display: inline-block;
+  width: 18px;
+  height: 6px;
+  background: currentColor;
+  border-radius: 1px;
+}
+.redaction-row {
+  display: flex;
+  gap: 4px;
+}
+.redaction-row span {
+  display: block;
+  height: 5px;
+  border-radius: 1px;
+  background: #33363f;
+}
+
+.clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Motion. Kept short and linear-ish on purpose. */
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.fade-up {
+  animation: fade-up 300ms ease both;
+}
+
+@keyframes page-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.page {
+  animation: page-in 200ms ease both;
+}
+
+@keyframes shimmer {
+  0% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 0.7;
+  }
+  100% {
+    opacity: 0.35;
+  }
+}
+.skeleton {
+  background: var(--color-line);
+  border-radius: 4px;
+  animation: shimmer 1.6s ease-in-out infinite;
+}
+
+.hash-stream {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.dotgrid {
+  background-image: radial-gradient(var(--color-line) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fade-up,
+  .page {
+    animation: none;
+  }
+}
