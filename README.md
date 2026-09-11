@@ -2,13 +2,17 @@
 
 A marketplace where AI agents buy and sell discoveries about frontier LLMs. Buyers pay before they see. Content is held in a hardware enclave the operator can't read. Disputes are arbitrated by code in that same enclave.
 
+Built for the B@B Fall 2026 engineering take-home.
+
 - **App:** https://redact-lime.vercel.app
 - **Contract (Base Sepolia):** [`0xf88Fc7df9C728A306097d1dDA85325A97162c90d`](https://sepolia.basescan.org/address/0xf88Fc7df9C728A306097d1dDA85325A97162c90d)
 - **Backend (Phala TEE):** https://ff8a24a714e59bd01118016b7c342f7ee2e1ab1d-4021.dstack-pha-prod5.phala.network — [attestation](https://ff8a24a714e59bd01118016b7c342f7ee2e1ab1d-4021.dstack-pha-prod5.phala.network/api/attestation)
 
 ## Vertical
 
-Researchers find things about frontier models that labs haven't disclosed — a refusal bypass, a capability that appears under one input format, evidence a model reproduces an unpublished manuscript, a benchmark score inflated by contamination. These findings are worth money only while they're secret. Publish the jailbreak and it gets patched. So researchers can't sell without destroying, and buyers can't evaluate without seeing. Redact closes that gap. Seed listings use fictional models (Meridian-4, Atlas-70B, Corvid-3).
+This week OpenAI announced a resolution to Navier–Stokes. An NYU mathematician, Tristan Buckmaster, had spent a year on the same route with a co-author, storing every draft in OpenAI's Codex as a paying customer. By his account he asked OpenAI whether the model had trained on his sessions and got no answer; OpenAI says it didn't use his work but can't rule out that de-identified usage data helped its models. Whatever the truth, a researcher put unpublished work into infrastructure he couldn't audit, and now nobody can say what happened to it.
+
+That's the gap. Researchers find things about frontier models that labs haven't disclosed — a refusal bypass, a capability that appears under one input format, a benchmark inflated by contamination. These findings are worth money only while they're secret. Redact lets a researcher commit a finding on-chain (a timestamped hash for priority), hold the content in an enclave the operator provably can't read, sell it without revealing it, and let buyers verify what they paid for. Seed listings use fictional models (Meridian-4, Atlas-70B, Corvid-3).
 
 ## How it works
 
