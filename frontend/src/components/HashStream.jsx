@@ -10,17 +10,22 @@ import { useEffect, useRef } from "react";
 
 const HEX = "0123456789abcdef";
 const ACCENT = { r: 0xbb, g: 0x3b, b: 0x1a }; // #BB3B1A
-// Printed gray on paper. Darkest face on top.
+// Printed gray on paper. Darkest face on top. Each face is a clear step
+// from the next so the volume reads even where the text is sparse.
 const FACE_COLORS = {
-  top: { r: 0xbf, g: 0xba, b: 0xae }, // #BFBAAE
-  left: { r: 0xcc, g: 0xc7, b: 0xbb }, // #CCC7BB
-  right: { r: 0xd7, g: 0xd2, b: 0xc6 }, // #D7D2C6
+  top: { r: 0xa9, g: 0xa4, b: 0x98 }, // #A9A498
+  left: { r: 0xb9, g: 0xb4, b: 0xa8 }, // #B9B4A8
+  right: { r: 0xc9, g: 0xc4, b: 0xb8 }, // #C9C4B8
 };
 const FONT_SIZE = 12;
 const CHAR_W = FONT_SIZE * 0.6;
-const BASE_ROW_H = 22;
-const MAX_ROW_H = 44;
+const BASE_ROW_H = 18;
+// Slow frames thin the rows one step, and only one. A ratchet that kept
+// growing left the cube half-empty for the rest of the session.
+const SLOW_ROW_H = 26;
 const CHUNK = 12;
+// Only interior fragments that drift across an edge are dropped. The first
+// and last rows are kept whole: the silhouette is what makes it a cube.
 const EDGE_DROP = 0.1;
 const COS30 = Math.cos(Math.PI / 6);
 const SIN30 = 0.5;
@@ -80,13 +85,19 @@ function buildRows(s, rowH) {
     const frags = [];
     let u = ((Math.random() * 4) | 0) * CHAR_W;
     while (u < s) {
-      const text = fragment();
-      const w = text.length * CHAR_W;
-      if (u + w > s) break; // keep the row inside its loop period so the wrap never overprints
+      let text = fragment();
+      let w = text.length * CHAR_W;
+      if (u + w > s) {
+        // Cut the tail to fit so the row runs to the edge instead of leaving a hole.
+        const fit = Math.floor((s - u) / CHAR_W);
+        if (fit < 3) break;
+        text = hex(fit);
+        w = fit * CHAR_W;
+      }
       frags.push({ text, u, w, edgeDrop: Math.random() < EDGE_DROP });
       u += w + CHAR_W;
     }
-    rows.push({ v: pad + r * rowH + rowH / 2, frags, first: r === 0, last: r === count - 1 });
+    rows.push({ v: pad + r * rowH + rowH / 2, frags });
   }
   return rows;
 }
@@ -201,8 +212,8 @@ export default function HashStream({
           for (let k = -1; k <= 0; k++) {
             const u = ((frag.u + face.offset) % s) + k * s;
             if (u + frag.w < 0 || u > s) continue;
-            const touchesEdge = u < 0 || u + frag.w > s || row.first || row.last;
-            if (touchesEdge && frag.edgeDrop) continue;
+            const crossesEdge = u < 0 || u + frag.w > s;
+            if (crossesEdge && frag.edgeDrop) continue;
             if (hl && u < hl.u + hl.w && u + frag.w > hl.u) continue; // make room for the highlight
 
             // Colour per chunk by cursor distance, measured in canvas space.
@@ -241,10 +252,15 @@ export default function HashStream({
       const dt = Math.min(dtMs / 1000, 0.1);
       last = now;
 
-      // Frame budget: if we are consistently over 60fps budget, thin the rows.
+      // Frame budget: consistently over 60fps budget thins the rows one step.
+      // If frames recover, the full density comes back.
       frameAvg = frameAvg * 0.95 + dtMs * 0.05;
-      if (frameAvg > 20 && rowH < MAX_ROW_H) {
-        rowH += 6;
+      if (frameAvg > 24 && rowH === BASE_ROW_H) {
+        rowH = SLOW_ROW_H;
+        frameAvg = 16;
+        rebuild();
+      } else if (frameAvg < 14 && rowH !== BASE_ROW_H) {
+        rowH = BASE_ROW_H;
         frameAvg = 16;
         rebuild();
       }
