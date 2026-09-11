@@ -36,7 +36,7 @@ export default function StatsBar() {
 
   // In normal flow, directly above the footer, so it never covers page content.
   return (
-    <div className="border-t border-line bg-ink">
+    <div className="border-t border-line bg-page">
       <div className="mx-auto flex max-w-[1200px] flex-wrap items-center gap-x-8 gap-y-1 px-6 py-2">
         <Stat label="Listings" value={stats?.listings} />
         <Stat label="Purchases" value={stats?.purchases} />

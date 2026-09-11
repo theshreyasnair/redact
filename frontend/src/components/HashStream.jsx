@@ -9,11 +9,12 @@ import { useEffect, useRef } from "react";
  */
 
 const HEX = "0123456789abcdef";
-const ACCENT = { r: 0xff, g: 0x7a, b: 0x59 }; // #FF7A59
+const ACCENT = { r: 0xbb, g: 0x3b, b: 0x1a }; // #BB3B1A
+// Printed gray on paper. Darkest face on top.
 const FACE_COLORS = {
-  top: { r: 0x2a, g: 0x2c, b: 0x34 }, // #2A2C34
-  left: { r: 0x22, g: 0x24, b: 0x29 }, // #222429
-  right: { r: 0x1a, g: 0x1c, b: 0x21 }, // #1A1C21
+  top: { r: 0xbf, g: 0xba, b: 0xae }, // #BFBAAE
+  left: { r: 0xcc, g: 0xc7, b: 0xbb }, // #CCC7BB
+  right: { r: 0xd7, g: 0xd2, b: 0xc6 }, // #D7D2C6
 };
 const FONT_SIZE = 12;
 const CHAR_W = FONT_SIZE * 0.6;
@@ -93,7 +94,7 @@ function buildRows(s, rowH) {
 export default function HashStream({
   size = 520, // total cube height in px
   center = (W, H) => ({ x: W * 0.8, y: H / 2 }),
-  opacity = 1,
+  opacity = 0.85,
   highlights = [],
   radius = 140,
   speed = 5,

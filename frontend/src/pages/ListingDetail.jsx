@@ -276,7 +276,7 @@ export default function ListingDetail() {
                             </span>
                             <span className="mono text-xs text-dim">{Math.round(resolution.confidence * 100)}% confidence</span>
                           </div>
-                          <p className="mt-3 text-sm leading-relaxed text-paper">{resolution.reason}</p>
+                          <p className="mt-3 text-sm leading-relaxed text-ink">{resolution.reason}</p>
                           <p className="mt-3 text-xs text-mute">
                             Resolution recorded <TxLink hash={resolution.txHash} />
                           </p>
@@ -317,7 +317,7 @@ export default function ListingDetail() {
         </div>
 
         <aside className="lg:sticky lg:top-8 lg:self-start">
-          <div className="card p-6" style={{ background: "rgba(12, 13, 16, 0.85)", backdropFilter: "none" }}>
+          <div className="card p-6">
             {!listing ? (
               <div className="flex flex-col gap-4">
                 <div className="skeleton h-10 w-40" />

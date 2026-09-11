@@ -50,7 +50,7 @@ export default function Marketplace() {
               key={t}
               onClick={() => setTab(t)}
               className={`-mb-px border-b pb-3 text-sm ${
-                tab === t ? "border-accent text-paper" : "border-transparent text-mute hover:text-paper"
+                tab === t ? "border-accent text-ink" : "border-transparent text-mute hover:text-ink"
               }`}
             >
               {t}

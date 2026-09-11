@@ -21,10 +21,10 @@ const TYPE_CLASS = {
   hash_mismatch: "text-bad",
   error: "text-bad",
   skipped: "text-mute",
-  scored: "text-paper",
+  scored: "text-ink",
   start: "text-mute",
   // seller
-  drafted: "text-paper",
+  drafted: "text-ink",
   leak_check: "text-mute",
   redrafted: "text-accent",
   listed: "text-mint",
@@ -36,7 +36,7 @@ function runRole(run) {
 }
 
 function typeClass(type) {
-  return TYPE_CLASS[type] || "text-paper";
+  return TYPE_CLASS[type] || "text-ink";
 }
 
 function formatTime(iso) {
@@ -175,7 +175,7 @@ function RunCard({ run, selected, onSelect, index }) {
     >
       <div className="flex items-center justify-between gap-3">
         <span className="flex items-center gap-2">
-          <span className={`mono text-sm ${selected ? "text-paper" : "text-mute"}`}>{run.runId}</span>
+          <span className={`mono text-sm ${selected ? "text-ink" : "text-mute"}`}>{run.runId}</span>
           <span className="caps">{runRole(run)}</span>
         </span>
         <span className="text-xs text-dim">{formatStarted(run.startedAt)}</span>
@@ -200,7 +200,7 @@ function EventRow({ event }) {
       {isSummary ? (
         <div className="card flex min-w-0 flex-1 flex-col gap-2 p-4">
           <span className="caps">summary</span>
-          <p className="leading-relaxed text-paper">
+          <p className="leading-relaxed text-ink">
             <Linkified text={event.message} />
           </p>
         </div>

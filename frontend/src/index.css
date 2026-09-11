@@ -1,29 +1,33 @@
 @import "tailwindcss";
 
 @theme {
-  --color-ink: #0c0d10;
-  --color-paper: #e8eaf0;
-  --color-accent: #ff7a59;
-  --color-mint: #7fe0b0;
-  --color-line: #1c1e24;
-  --color-line-hover: #33363f;
-  --color-mute: #8a8f9c;
-  --color-dim: #5c6170;
-  --color-hash: #22242a;
+  /* Paper. A redacted document: cream page, black text, black bars. */
+  --color-page: #ede8dd;
+  --color-panel: #faf8f3;
+  --color-ink: #111111;
+  --color-accent: #bb3b1a;
+  --color-mint: #17734b;
+  --color-line: #d3cec2;
+  --color-line-hover: #b3aea2;
+  --color-mute: #626262;
+  /* Same as mute on purpose: nothing lighter than #626262 is used for text. */
+  --color-dim: #626262;
+  --color-hash: #d3cec2;
   --color-bad: #b23a3a;
+  --color-bar: #111111;
   --font-serif: "Instrument Serif", Georgia, "Times New Roman", serif;
   --font-sans: "Inter", system-ui, -apple-system, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
 :root {
-  color-scheme: dark;
+  color-scheme: light;
 }
 
 html,
 body {
-  background: var(--color-ink);
-  color: var(--color-paper);
+  background: var(--color-page);
+  color: var(--color-ink);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
 }
@@ -31,6 +35,11 @@ body {
 * {
   transition-duration: 150ms;
   transition-timing-function: ease;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
 }
 
 .mono {
@@ -69,19 +78,19 @@ body {
   cursor: not-allowed;
 }
 .btn-primary {
-  background: var(--color-accent);
-  color: #0c0d10;
+  background: var(--color-ink);
+  color: var(--color-page);
 }
 .btn-primary:not(:disabled):hover {
-  background: #ff8f73;
+  background: #2b2b2b;
 }
 .btn-secondary {
   background: transparent;
-  color: var(--color-paper);
+  color: var(--color-ink);
   border-color: var(--color-line-hover);
 }
 .btn-secondary:not(:disabled):hover {
-  border-color: var(--color-paper);
+  border-color: var(--color-ink);
 }
 .btn-danger {
   background: transparent;
@@ -95,8 +104,7 @@ body {
 .card {
   border: 1px solid var(--color-line);
   border-radius: 8px;
-  background: rgba(12, 13, 16, 0.92);
-  backdrop-filter: blur(2px);
+  background: var(--color-panel);
 }
 .card:hover {
   border-color: var(--color-line-hover);
@@ -104,12 +112,12 @@ body {
 
 .field {
   width: 100%;
-  background: transparent;
+  background: var(--color-panel);
   border: 1px solid var(--color-line-hover);
   border-radius: 6px;
   padding: 10px 12px;
   font-size: 14px;
-  color: var(--color-paper);
+  color: var(--color-ink);
   outline: none;
 }
 .field:focus {
@@ -119,7 +127,7 @@ body {
   color: var(--color-dim);
 }
 select.field option {
-  background: #0c0d10;
+  background: var(--color-panel);
 }
 
 /* Wordmark glyph and the "hidden content" bars on cards. */
@@ -127,7 +135,7 @@ select.field option {
   display: inline-block;
   width: 18px;
   height: 6px;
-  background: currentColor;
+  background: var(--color-bar);
   border-radius: 1px;
 }
 .redaction-row {
@@ -136,9 +144,43 @@ select.field option {
 }
 .redaction-row span {
   display: block;
-  height: 5px;
+  height: 8px;
   border-radius: 1px;
-  background: #33363f;
+  background: var(--color-bar);
+}
+
+/* Hero: a redacted phrase. Text is set to the bar colour so it is invisible until hover. */
+.redact {
+  background: var(--color-bar);
+  color: var(--color-bar);
+  border-radius: 2px;
+  padding: 0 0.12em;
+  cursor: default;
+  transition: background-color 150ms ease, color 150ms ease;
+}
+.redact:hover,
+.redact:focus-visible {
+  background: transparent;
+  color: var(--color-ink);
+}
+
+/* Purchase panel preview: the first sentence, then two lines of bars standing in for the rest. */
+.preview-text {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.preview-bars {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 5px;
+}
+.preview-bars span {
+  display: block;
+  height: 10px;
+  border-radius: 1px;
+  background: var(--color-bar);
 }
 
 .clamp-2 {

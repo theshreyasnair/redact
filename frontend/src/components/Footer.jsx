@@ -30,13 +30,13 @@ function TeeBadge() {
 
 export default function Footer() {
   return (
-    <footer className="relative z-10 border-t border-line bg-ink">
+    <footer className="relative z-10 border-t border-line bg-page">
       <div className="mx-auto flex max-w-[1200px] flex-wrap items-center justify-between gap-3 px-6 py-5 text-xs text-mute">
         <a
           href={`${EXPLORER_URL}/address/${CONTRACT_ADDRESS}`}
           target="_blank"
           rel="noreferrer"
-          className="mono hover:text-paper"
+          className="mono hover:text-ink"
         >
           Contract {shortAddress(CONTRACT_ADDRESS, 6, 4)}
         </a>

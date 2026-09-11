@@ -3,13 +3,13 @@ import { useWallet } from "../lib/wallet";
 import { shortAddress } from "../lib/format";
 
 const navClass = ({ isActive }) =>
-  `text-sm transition-colors ${isActive ? "text-paper" : "text-mute hover:text-paper"}`;
+  `text-sm transition-colors ${isActive ? "text-ink" : "text-mute hover:text-ink"}`;
 
 export default function Header() {
   const { isConnected, address, isCorrectNetwork, connect, connecting, switchNetwork, error } = useWallet();
 
   return (
-    <header className="relative z-10 border-b border-line bg-ink">
+    <header className="relative z-10 border-b border-line bg-page">
       <div className="mx-auto flex max-w-[1200px] items-center justify-between gap-6 px-6 py-4">
         <Link to="/" className="serif flex items-center gap-2.5 text-2xl leading-none">
           <span className="redaction-bar" aria-hidden="true" />
