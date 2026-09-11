@@ -53,9 +53,8 @@ export default function Marketplace() {
             <Redacted>6%</Redacted>. None of this is public.
           </h1>
           <p className="mt-6 max-w-[640px] text-[17px] leading-relaxed text-mute">
-            Redact is a marketplace for research on large language models. Jailbreaks, capability discoveries, safety
-            failures, benchmark results. Buy before you see. Verify against the chain. Dispute to an arbitrator nobody
-            can tamper with.
+            A market for LLM research findings like that one, sold before they&apos;re public. Pay before you see. Verify
+            against the chain.
           </p>
           <p className="mt-3 text-sm text-mute">Example only. The model and numbers are not real.</p>
         </div>
