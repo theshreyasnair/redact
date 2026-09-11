@@ -2,7 +2,7 @@ import { ethers } from "ethers";
 import abi from "../abi/ResearchMarketplace.json";
 import { CONTRACT_ADDRESS, RPC_URL } from "../config";
 
-const readProvider = new ethers.JsonRpcProvider(RPC_URL);
+export const readProvider = new ethers.JsonRpcProvider(RPC_URL);
 export const readContract = new ethers.Contract(CONTRACT_ADDRESS, abi, readProvider);
 
 export function writeContract(signer) {

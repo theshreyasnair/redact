@@ -4,16 +4,31 @@ const { createChain, keccakOf, revertReason } = require("./chain");
 const { createPaidFetch } = require("./x402client");
 const { scoreListing, evaluateContent } = require("./llm");
 
-async function fetchJson(url) {
+async function fetchJson(url, headers = {}) {
   let res;
   try {
-    res = await fetch(url, { headers: { Accept: "application/json" } });
+    res = await fetch(url, { headers: { Accept: "application/json", ...headers } });
   } catch (err) {
     throw new Error(`could not reach ${url} (${err.cause?.code || err.message}). Is the backend running?`);
   }
   const body = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(body.error || `${url} returned ${res.status}`);
   return body;
+}
+
+/**
+ * Re-fetches content this wallet already paid for. Signs
+ * "redact:reveal:<listingId>:<unixTimestamp>" and calls the owner path,
+ * which checks the on-chain purchase record instead of charging through x402.
+ */
+async function fetchOwnedContent({ backendUrl, wallet, listingId }) {
+  const timestamp = Math.floor(Date.now() / 1000);
+  const signature = await wallet.signMessage(`redact:reveal:${listingId}:${timestamp}`);
+  return fetchJson(`${backendUrl}/api/listings/${listingId}/content`, {
+    "X-Owner-Address": wallet.address,
+    "X-Owner-Signature": signature,
+    "X-Owner-Timestamp": String(timestamp),
+  });
 }
 
 async function main() {
@@ -28,6 +43,11 @@ async function main() {
 
   // ---- preflight ----
   console.log(`run ${runId}`);
+  // First event of the run. The Agent page reads role, goal and budget from it.
+  emit("start", {
+    message: `buyer run: "${config.goal}" with ${config.budget} USDC`,
+    data: { role: "buyer", goal: config.goal, budget: config.budget, wallet: chain.address },
+  });
   console.log(`goal:    ${config.goal}`);
   console.log(`budget:  ${config.budget} USDC   min score: ${config.minScore}`);
   console.log(`wallet:  ${chain.address}`);
@@ -40,13 +60,39 @@ async function main() {
   console.log("");
 
   // ---- discover ----
-  const all = await fetchJson(`${config.backendUrl}/api/listings`);
-  const listings = all.filter((l) => l.statusCode === 0);
-  console.log(`${listings.length} active listing(s)\n`);
+  let listings;
+  if (config.listing) {
+    const one = await fetchJson(`${config.backendUrl}/api/listings/${config.listing}`);
+    if (one.statusCode !== 0)
+      throw new Error(`listing ${config.listing} is not active (status ${one.status ?? one.statusCode})`);
+    listings = [one];
+    console.log(`--listing ${config.listing}: "${one.title}" for ${one.price} USDC, scoring skipped\n`);
+  } else {
+    const all = await fetchJson(`${config.backendUrl}/api/listings`);
+    listings = all.filter((l) => l.statusCode === 0);
+    console.log(`${listings.length} active listing(s)\n`);
+  }
 
   // ---- score ----
   const scored = [];
   for (const listing of listings) {
+    if (config.listing) {
+      // Direct buy: no model call, treat as worth buying with a perfect score.
+      scored.push({
+        listing,
+        relevance: 10,
+        credibility: 10,
+        worth_buying: true,
+        reason: "selected with --listing",
+        score: 100,
+      });
+      emit("scored", {
+        listingId: listing.id,
+        message: `scoring skipped (--listing ${config.listing})`,
+        data: { price: listing.price, title: listing.title },
+      });
+      continue;
+    }
     try {
       const s = await scoreListing({ goal: config.goal, listing });
       const score = s.relevance * s.credibility;
@@ -63,7 +109,7 @@ async function main() {
   scored.sort((a, b) => b.score - a.score);
 
   // ---- buy, verify, evaluate, dispute ----
-  const stats = { scored: scored.length, bought: 0, verified: 0, disputed: 0, spent: 0 };
+  const stats = { scored: scored.length, bought: 0, refetched: 0, verified: 0, disputed: 0, spent: 0 };
   let remaining = config.budget;
   // score is 0..100; MIN_SCORE is on the 0..10 scale, so compare against the geometric mean.
   const meetsMin = (s) => Math.sqrt(s.score) >= config.minScore;
@@ -77,36 +123,97 @@ async function main() {
       continue;
     }
     if (!meetsMin(entry)) {
-      emit("skipped", { listingId: listing.id, message: `score ${Math.sqrt(entry.score).toFixed(1)} below minimum ${config.minScore}` });
+      emit("skipped", {
+        listingId: listing.id,
+        message: `score ${Math.sqrt(entry.score).toFixed(1)} below minimum ${config.minScore}`,
+      });
       continue;
     }
-    if (price > remaining) {
-      emit("skipped", { listingId: listing.id, message: `price ${price} USDC exceeds remaining budget ${remaining.toFixed(6)}` });
+    if ((listing.listedBy || "").toLowerCase() === chain.address.toLowerCase()) {
+      emit("skipped", { listingId: listing.id, message: "own listing (listed by this wallet)" });
       continue;
     }
 
-    // Buy.
-    emit("buying", { listingId: listing.id, message: `"${listing.title}" for ${listing.price} USDC`, data: { price } });
-    let body;
+    // Never pay twice: check the on-chain purchase record for this wallet first.
+    let owned = null;
     try {
-      const url = `${config.backendUrl}/api/listings/${listing.id}/reveal`;
-      const first = await fetch(url, { headers: { Accept: "application/json" } });
-      emit("buying", { listingId: listing.id, message: `GET reveal -> ${first.status}${first.status === 402 ? ", paying" : ""}` });
-      const res = await fetchWithPayment(url, { headers: { Accept: "application/json" } });
-      body = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(body.error || `reveal returned ${res.status}`);
-      const paymentResponse = res.headers.get("payment-response");
-      remaining -= price;
-      stats.bought += 1;
-      stats.spent += price;
-      emit("paid", {
-        listingId: listing.id,
-        message: `paid ${listing.price} USDC, content received (${body.content?.length ?? 0} chars). recordPurchase tx ${body.txHash || "none"}`,
-        data: { txHash: body.txHash, recordError: body.recordError, settled: Boolean(paymentResponse), remaining },
-      });
+      const purchase = await fetchJson(`${config.backendUrl}/api/purchases/${listing.id}/${chain.address}`);
+      if (Number(purchase.timestamp) > 0) owned = purchase;
     } catch (err) {
-      emit("error", { listingId: listing.id, message: `purchase failed: ${err.message}` });
+      emit("error", { listingId: listing.id, message: `purchase lookup failed, not buying: ${err.message}` });
       continue;
+    }
+
+    let body;
+    if (owned) {
+      // Already paid. The dispute window is 7 days from purchase, so re-fetch
+      // through the signed owner path (no payment) and run the same checks.
+      try {
+        body = await fetchOwnedContent({ backendUrl: config.backendUrl, wallet: chain.wallet, listingId: listing.id });
+        stats.refetched += 1;
+        emit("refetched", {
+          listingId: listing.id,
+          message: `already purchased ${new Date(owned.timestamp * 1000).toISOString().slice(0, 10)} (${owned.status}), re-fetched via signed owner path (${body.content?.length ?? 0} chars)`,
+          data: { timestamp: owned.timestamp, status: owned.status },
+        });
+      } catch (err) {
+        emit("error", { listingId: listing.id, message: `owner re-fetch failed: ${err.message}` });
+        continue;
+      }
+    } else if (price > remaining) {
+      emit("skipped", {
+        listingId: listing.id,
+        message: `price ${price} USDC exceeds remaining budget ${remaining.toFixed(6)}`,
+      });
+      continue;
+    } else {
+      // Buy.
+      emit("buying", {
+        listingId: listing.id,
+        message: `"${listing.title}" for ${listing.price} USDC`,
+        data: { price },
+      });
+      try {
+        const url = `${config.backendUrl}/api/listings/${listing.id}/reveal`;
+        const first = await fetch(url, { headers: { Accept: "application/json" } });
+        const firstBody = await first.text().catch(() => "");
+        emit("buying", {
+          listingId: listing.id,
+          message: `GET reveal -> ${first.status}${first.status === 402 ? ", paying" : ""}`,
+        });
+        let res;
+        try {
+          res = await fetchWithPayment(url, { headers: { Accept: "application/json" } });
+        } catch (err) {
+          // The x402 wrapper threw before/while retrying. Dump the original 402 so the
+          // payment requirements it was working from are visible.
+          log402("initial 402 (payment retry threw)", first, firstBody);
+          throw err;
+        }
+        const text = await res.text().catch(() => "");
+        try {
+          body = JSON.parse(text);
+        } catch {
+          body = {};
+        }
+        if (!res.ok) {
+          log402("initial 402", first, firstBody);
+          log402(`paid retry -> ${res.status}`, res, text);
+          throw new Error(body.error || `reveal returned ${res.status} after payment retry`);
+        }
+        const paymentResponse = res.headers.get("payment-response");
+        remaining -= price;
+        stats.bought += 1;
+        stats.spent += price;
+        emit("paid", {
+          listingId: listing.id,
+          message: `paid ${listing.price} USDC, content received (${body.content?.length ?? 0} chars). recordPurchase tx ${body.txHash || "none"}`,
+          data: { txHash: body.txHash, recordError: body.recordError, settled: Boolean(paymentResponse), remaining },
+        });
+      } catch (err) {
+        emit("error", { listingId: listing.id, message: `purchase failed: ${err.message}` });
+        continue;
+      }
     }
 
     // Verify the hash.
@@ -122,7 +229,11 @@ async function main() {
       continue;
     }
     stats.verified += 1;
-    emit("verified", { listingId: listing.id, message: `content hash matches on-chain commitment`, data: { hash: localHash } });
+    emit("verified", {
+      listingId: listing.id,
+      message: `content hash matches on-chain commitment`,
+      data: { hash: localHash },
+    });
 
     // Evaluate.
     let verdict;
@@ -139,9 +250,24 @@ async function main() {
     }
 
     if (!verdict.delivered || verdict.quality < 4 || verdict.already_public) {
-      const why = !verdict.delivered ? "not delivered" : verdict.already_public ? "already public" : `quality ${verdict.quality} below 4`;
+      const why = !verdict.delivered
+        ? "not delivered"
+        : verdict.already_public
+          ? "already public"
+          : `quality ${verdict.quality} below 4`;
       await dispute(listing.id, why);
     }
+  }
+
+  function log402(label, res, text) {
+    const headers = Object.fromEntries(res.headers.entries());
+    console.error(`\n[402 debug] ${label}: HTTP ${res.status} ${res.statusText}`);
+    console.error("[402 debug] headers:", JSON.stringify(headers, null, 2));
+    console.error("[402 debug] body:", text || "(empty)");
+    emit("error", {
+      message: `[402 debug] ${label}: HTTP ${res.status}`,
+      data: { status: res.status, headers, body: text },
+    });
   }
 
   async function dispute(listingId, why) {
@@ -158,6 +284,7 @@ async function main() {
   const summary = {
     listingsScored: stats.scored,
     bought: stats.bought,
+    refetched: stats.refetched,
     verified: stats.verified,
     disputed: stats.disputed,
     usdcSpent: Number(stats.spent.toFixed(6)),
@@ -165,7 +292,10 @@ async function main() {
   };
   console.log("");
   console.table(summary);
-  emit("summary", { message: `scored ${summary.listingsScored}, bought ${summary.bought}, verified ${summary.verified}, disputed ${summary.disputed}, spent ${summary.usdcSpent} USDC, remaining ${summary.usdcRemaining} USDC`, data: summary });
+  emit("summary", {
+    message: `scored ${summary.listingsScored}, bought ${summary.bought}, refetched ${summary.refetched}, verified ${summary.verified}, disputed ${summary.disputed}, spent ${summary.usdcSpent} USDC, remaining ${summary.usdcRemaining} USDC`,
+    data: summary,
+  });
   console.log(`wallet on Basescan: ${EXPLORER_URL}/address/${chain.address}`);
   await flush();
 }

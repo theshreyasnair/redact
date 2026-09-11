@@ -81,4 +81,4 @@ async function evaluateContent({ goal, listing, content }) {
   return askJson(EVALUATION_SYSTEM_PROMPT, user, EvaluationSchema, 4096);
 }
 
-module.exports = { SCORING_SYSTEM_PROMPT, EVALUATION_SYSTEM_PROMPT, scoreListing, evaluateContent };
+module.exports = { SCORING_SYSTEM_PROMPT, EVALUATION_SYSTEM_PROMPT, askJson, scoreListing, evaluateContent };

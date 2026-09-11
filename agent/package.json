@@ -1,10 +1,11 @@
 {
   "name": "redact-agent",
   "version": "1.0.0",
-  "description": "Autonomous buyer agent for the Redact research marketplace",
+  "description": "Autonomous buyer and seller agents for the Redact research marketplace",
   "main": "src/agent.js",
   "scripts": {
-    "start": "node src/agent.js"
+    "start": "node src/agent.js",
+    "sell": "node src/seller.js"
   },
   "keywords": [],
   "author": "",

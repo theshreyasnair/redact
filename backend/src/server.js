@@ -11,6 +11,7 @@ const { ExactEvmScheme } = require("@x402/evm/exact/server");
 const contract = require("./contract");
 const store = require("./store");
 const tee = require("./tee");
+const resolver = require("./resolver");
 
 const { ethers } = contract;
 
@@ -376,6 +377,68 @@ app.get(REVEAL_ROUTE, async (req, res) => {
   });
 });
 
+// 4b. Owner re-reveal (no x402). A buyer who already holds an on-chain purchase
+// proves it by signing "redact:reveal:<listingId>:<unixTimestamp>" with their
+// wallet. Headers: X-Owner-Address, X-Owner-Signature, X-Owner-Timestamp.
+// The timestamp must be within the last 5 minutes so a captured signature
+// cannot be replayed later.
+const OWNER_REVEAL_WINDOW_S = 5 * 60;
+
+app.get("/api/listings/:id/content", async (req, res) => {
+  const id = parseListingId(req.params.id);
+  if (!id) return sendError(res, 400, "Invalid listing id");
+
+  const address = req.header("x-owner-address") || "";
+  const signature = req.header("x-owner-signature") || "";
+  const timestamp = Number(req.header("x-owner-timestamp"));
+  if (!ethers.isAddress(address) || !signature) {
+    return sendError(res, 401, "X-Owner-Address and X-Owner-Signature headers are required");
+  }
+  if (!Number.isInteger(timestamp) || timestamp <= 0) {
+    return sendError(res, 401, "X-Owner-Timestamp must be a unix timestamp in seconds");
+  }
+  const age = Math.floor(Date.now() / 1000) - timestamp;
+  if (age > OWNER_REVEAL_WINDOW_S || age < -60) {
+    return sendError(res, 401, "Signature timestamp is outside the 5 minute window");
+  }
+
+  let signer;
+  try {
+    signer = ethers.verifyMessage(`redact:reveal:${id}:${timestamp}`, signature);
+  } catch {
+    return sendError(res, 401, "Invalid signature");
+  }
+  if (signer.toLowerCase() !== address.toLowerCase()) {
+    return sendError(res, 401, "Signature does not match X-Owner-Address");
+  }
+  const owner = ethers.getAddress(address);
+
+  try {
+    const listing = await getListingCached(id);
+    if (!listing) return sendError(res, 404, "Listing not found");
+
+    const purchase = await contract.getPurchase(id, owner);
+    if (!(purchase.timestamp > 0)) return sendError(res, 403, "This wallet has not purchased this listing");
+
+    const entry = store.getEntry(id);
+    if (!entry) return sendError(res, 404, "Content for this listing is not available on this server");
+
+    let content;
+    try {
+      content = tee.isEncrypted(entry.content) ? tee.decrypt(entry.content) : entry.content;
+    } catch (err) {
+      console.error(`[content] decrypt failed listing=${id}: ${err.message}`);
+      return sendError(res, 500, "Content could not be decrypted on this server");
+    }
+
+    console.log(`[content] owner re-reveal listing=${id} owner=${owner}`);
+    res.json({ listingId: id, buyer: owner, content, contentHash: listing.contentHash, purchase });
+  } catch (err) {
+    console.error("[GET /api/listings/:id/content]", err);
+    sendError(res, 502, contract.contractErrorMessage(err));
+  }
+});
+
 // TEE attestation: the TDX quote plus which image is running. 200 even outside a TEE.
 app.get("/api/attestation", async (_req, res) => {
   try {
@@ -417,6 +480,31 @@ app.get("/api/purchases/:listingId/:buyer", async (req, res) => {
   } catch (err) {
     console.error("[GET /api/purchases]", err);
     sendError(res, 502, contract.contractErrorMessage(err));
+  }
+});
+
+// 7. Dispute resolutions written by the in-enclave arbitrator, newest first.
+app.get("/api/disputes", (_req, res) => {
+  try {
+    res.json(resolver.listResolutions());
+  } catch (err) {
+    console.error("[GET /api/disputes]", err);
+    sendError(res, 500, "Could not read dispute resolutions");
+  }
+});
+
+app.get("/api/disputes/:listingId/:buyer", (req, res) => {
+  const id = parseListingId(req.params.listingId);
+  const { buyer } = req.params;
+  if (!id) return sendError(res, 400, "Invalid listing id");
+  if (!ethers.isAddress(buyer)) return sendError(res, 400, "Invalid buyer address");
+  try {
+    const found = resolver.getResolution(id, buyer);
+    if (!found) return sendError(res, 404, "No resolution for this dispute");
+    res.json(found);
+  } catch (err) {
+    console.error("[GET /api/disputes/:listingId/:buyer]", err);
+    sendError(res, 500, "Could not read dispute resolutions");
   }
 });
 
@@ -522,6 +610,9 @@ async function start() {
     console.log(`  x402 payTo:             ${WALLET_ADDRESS} (${NETWORK} via ${FACILITATOR_URL})`);
     console.log(`  content key source:     ${status.keySource} (TEE ${status.tee ? "active" : "inactive"})`);
   });
+
+  // Dispute arbitration. Needs the content key, so it starts after initEncryption.
+  resolver.start({ onResolved: invalidateCaches });
 }
 
 start().catch((err) => {

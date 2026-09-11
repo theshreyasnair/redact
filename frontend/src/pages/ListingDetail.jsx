@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api } from "../lib/api";
 import { EXPLORER_URL } from "../config";
@@ -6,9 +6,14 @@ import { useWallet } from "../lib/wallet";
 import { paidFetch } from "../lib/x402";
 import { hashContent, revertReason, writeContract } from "../lib/contract";
 import { loadPurchase, savePurchase } from "../lib/storage";
+import { fetchOwnedContent } from "../lib/owner";
 import { formatDate, formatUsdc, reputationLabel, sameAddress, shortAddress, shortHash, trustLabel } from "../lib/format";
 import HashStream from "../components/HashStream";
 import { SkeletonLine } from "../components/Skeleton";
+
+// How often to re-check for an arbitrator verdict while a dispute is open.
+const DISPUTE_POLL_MS = 15_000;
+const PURCHASE_DISPUTED = 2;
 
 function TxLink({ hash, children }) {
   if (!hash) return null;
@@ -33,6 +38,14 @@ export default function ListingDetail() {
   const [dispute, setDispute] = useState({ state: "idle", tx: null, error: null });
   const [delist, setDelist] = useState({ state: "idle", tx: null, error: null });
 
+  // On-chain purchase record for this wallet, and the arbitrator's verdict if one exists.
+  const [onChain, setOnChain] = useState(null);
+  const [resolution, setResolution] = useState(null);
+
+  // Owner re-reveal: content fetched with a signed message when the wallet holds a
+  // purchase but this browser has no cached copy. idle | signing | done | error
+  const [ownerFetch, setOwnerFetch] = useState({ state: "idle", error: null });
+
   useEffect(() => {
     let alive = true;
     setListing(null);
@@ -46,9 +59,11 @@ export default function ListingDetail() {
     };
   }, [id]);
 
-  // Restore a previous purchase for this wallet.
+  // Restore a previous purchase for this wallet. localStorage is only a cache;
+  // the on-chain record below is what decides ownership.
   useEffect(() => {
     setVerify(null);
+    setOwnerFetch({ state: "idle", error: null });
     if (!wallet.address) {
       setRevealed(null);
       return;
@@ -58,7 +73,74 @@ export default function ListingDetail() {
     setStage(saved ? "done" : "idle");
   }, [id, wallet.address]);
 
+  // Fetch the content through the signed owner path. No payment, no gas: MetaMask
+  // signs a short message and the backend checks the purchase record on-chain.
+  const revealOwned = useCallback(async () => {
+    if (!wallet.address) return;
+    setOwnerFetch({ state: "signing", error: null });
+    try {
+      const signer = await wallet.getSigner();
+      const body = await fetchOwnedContent(id, signer, wallet.address);
+      const data = { content: body.content, contentHash: body.contentHash, txHash: null, title: listing?.title };
+      savePurchase(id, wallet.address, data);
+      setRevealed((prev) => ({ ...data, txHash: prev?.txHash ?? null }));
+      setStage("done");
+      setOwnerFetch({ state: "done", error: null });
+    } catch (err) {
+      const rejected = err?.code === 4001 || err?.code === "ACTION_REJECTED";
+      setOwnerFetch({
+        state: "error",
+        error: rejected ? "Signature rejected. Sign to prove ownership and reveal the content." : err?.shortMessage || err?.message || "Could not fetch content",
+      });
+    }
+  }, [wallet, id, listing]);
+
+  // Load the purchase status and any resolution. While the dispute is open, poll for the verdict.
+  useEffect(() => {
+    setOnChain(null);
+    setResolution(null);
+    if (!wallet.address) return;
+    let alive = true;
+    let timer = 0;
+    const load = async () => {
+      let purchaseRecord;
+      try {
+        purchaseRecord = await api.purchase(id, wallet.address);
+      } catch {
+        return;
+      }
+      if (!alive) return;
+      setOnChain(purchaseRecord);
+      if (!purchaseRecord.exists) return;
+      // Owned on-chain but nothing cached in this browser: re-reveal with a signature.
+      if (!loadPurchase(id, wallet.address)) autoReveal.current?.();
+      try {
+        const found = await api.dispute(id, wallet.address);
+        if (alive) setResolution(found);
+        return;
+      } catch (err) {
+        if (err.status !== 404) return;
+      }
+      if (alive && purchaseRecord.statusCode === PURCHASE_DISPUTED) timer = setTimeout(load, DISPUTE_POLL_MS);
+    };
+    load();
+    return () => {
+      alive = false;
+      clearTimeout(timer);
+    };
+  }, [id, wallet.address, dispute.state]);
+
+  // Latest revealOwned without making the polling effect above depend on it.
+  const autoReveal = useRef(null);
+  useEffect(() => {
+    autoReveal.current = () => {
+      if (ownerFetch.state === "idle") revealOwned();
+    };
+  }, [revealOwned, ownerFetch.state]);
+
   const isSeller = listing && sameAddress(wallet.address, listing.listedBy);
+  const ownsOnChain = Boolean(onChain?.exists);
+  const disputeOpen = dispute.state === "done" || onChain?.statusCode === PURCHASE_DISPUTED;
   const isDelisted = listing && listing.statusCode !== 0;
 
   const purchase = useCallback(async () => {
@@ -185,27 +267,48 @@ export default function ListingDetail() {
                   </div>
 
                   <div className="mt-6 border-t border-line pt-6">
-                    <p className="text-sm text-mute">
-                      Received something other than what was described? Open a dispute on-chain. The dispute counts
-                      against the seller's reputation until it is resolved.
-                    </p>
-                    <div className="mt-3 flex flex-wrap items-center gap-3">
-                      <button
-                        className="btn btn-danger"
-                        onClick={openDispute}
-                        disabled={dispute.state === "pending" || dispute.state === "mining" || dispute.state === "done"}
-                      >
-                        {dispute.state === "pending"
-                          ? "Waiting for signature…"
-                          : dispute.state === "mining"
-                            ? "Confirming…"
-                            : dispute.state === "done"
-                              ? "Dispute opened"
-                              : "Open dispute"}
-                      </button>
-                      {dispute.tx && <TxLink hash={dispute.tx} />}
-                      {dispute.error && <span className="text-sm text-bad">{dispute.error}</span>}
-                    </div>
+                    {resolution ? (
+                      <>
+                        <div className="card p-5">
+                          <div className="flex flex-wrap items-center justify-between gap-3">
+                            <span className={`text-sm font-medium ${resolution.buyerWins ? "text-mint" : "text-mute"}`}>
+                              {resolution.buyerWins ? "Resolved: buyer wins" : "Resolved: seller wins"}
+                            </span>
+                            <span className="mono text-xs text-dim">{Math.round(resolution.confidence * 100)}% confidence</span>
+                          </div>
+                          <p className="mt-3 text-sm leading-relaxed text-paper">{resolution.reason}</p>
+                          <p className="mt-3 text-xs text-mute">
+                            Resolution recorded <TxLink hash={resolution.txHash} />
+                          </p>
+                        </div>
+                        <p className="mt-2 text-xs text-dim">Arbitrated by attested code running in the TEE.</p>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-sm text-mute">
+                          Received something other than what was described? Open a dispute on-chain. The dispute counts
+                          against the seller's reputation until it is resolved.
+                        </p>
+                        <div className="mt-3 flex flex-wrap items-center gap-3">
+                          <button
+                            className="btn btn-danger"
+                            onClick={openDispute}
+                            disabled={dispute.state === "pending" || dispute.state === "mining" || disputeOpen}
+                          >
+                            {dispute.state === "pending"
+                              ? "Waiting for signature…"
+                              : dispute.state === "mining"
+                                ? "Confirming…"
+                                : disputeOpen
+                                  ? "Dispute opened"
+                                  : "Open dispute"}
+                          </button>
+                          {dispute.tx && <TxLink hash={dispute.tx} />}
+                          {dispute.error && <span className="text-sm text-bad">{dispute.error}</span>}
+                        </div>
+                        {disputeOpen && <p className="mt-2 text-xs text-mute">Dispute open · awaiting arbitration</p>}
+                      </>
+                    )}
                   </div>
                 </section>
               )}
@@ -254,7 +357,8 @@ export default function ListingDetail() {
                       <span className="mono text-dim">1</span> Pay with USDC through x402. One signature, no gas.
                     </li>
                     <li className="flex gap-3">
-                      <span className="mono text-dim">2</span> The content is revealed here and saved in this browser.
+                      <span className="mono text-dim">2</span> The content is revealed here. Any browser with your wallet can
+                      re-reveal it by signing a message.
                     </li>
                     <li className="flex gap-3">
                       <span className="mono text-dim">3</span> Verify it against the hash committed on-chain.
@@ -301,10 +405,29 @@ export default function ListingDetail() {
                         from your wallet may be rejected by the contract.
                       </p>
                     </>
-                  ) : revealed ? (
-                    <div className="rounded-md border border-line px-4 py-3 text-center text-sm text-mute">
-                      You own this research.
-                    </div>
+                  ) : revealed || ownsOnChain ? (
+                    <>
+                      <div className="rounded-md border border-line px-4 py-3 text-center text-sm text-mute">
+                        You own this research.
+                      </div>
+                      {!revealed && (
+                        <button
+                          className="btn btn-secondary mt-3 w-full"
+                          onClick={revealOwned}
+                          disabled={ownerFetch.state === "signing"}
+                        >
+                          {ownerFetch.state === "signing" ? "Waiting for signature…" : "Reveal content"}
+                        </button>
+                      )}
+                      {!revealed && ownerFetch.state === "error" && (
+                        <p className="mt-2 text-xs text-bad">{ownerFetch.error}</p>
+                      )}
+                      {!revealed && ownerFetch.state !== "error" && (
+                        <p className="mt-3 text-xs text-dim">
+                          Purchase found on-chain. Sign a message to prove it and reveal the content. No gas.
+                        </p>
+                      )}
+                    </>
                   ) : (
                     <button
                       className="btn btn-primary w-full"

@@ -117,6 +117,24 @@ Base Sepolia wallet holding test USDC; it retries the request with a signed
 - `GET /api/listings` does one `getListing` call per listing id; fine for a
   prototype, slow for thousands of listings.
 
+## Owner re-reveal
+
+`GET /api/listings/:id/content` returns the decrypted content to a wallet that
+already holds an on-chain purchase, with no x402 payment. The caller signs the
+exact message `redact:reveal:<listingId>:<unixTimestamp>` (seconds) and sends:
+
+```
+X-Owner-Address:   0x...            the buyer wallet
+X-Owner-Signature: 0x...            personal_sign of the message above
+X-Owner-Timestamp: 1757548800       the timestamp that was signed; must be within 5 minutes
+```
+
+The server recovers the signer with `ethers.verifyMessage`, requires it to equal
+`X-Owner-Address`, then calls `getPurchase(listingId, address)` and requires a
+non-zero timestamp. Responses: `{ listingId, buyer, content, contentHash, purchase }`
+on success, 401 for a missing, stale or mismatched signature, 403 when the wallet
+has no purchase, 404 when the listing or its content is missing.
+
 ## Running in a TEE (Phala Cloud / dstack)
 
 The research content is encrypted at rest with AES-256-GCM. Inside an Intel TDX

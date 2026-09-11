@@ -8,18 +8,20 @@
 #   BASE_SEPOLIA_RPC_URL   JSON-RPC endpoint (use a dedicated one in production)
 #   FACILITATOR_URL        x402 facilitator
 #   PORT                   optional; defaults to 4021
+#   ANTHROPIC_API_KEY      arbitrator key for the dispute resolver; unset disables it
+#   CONTRACT_DEPLOY_BLOCK  block the resolver scans from on its first run
 # CONTENT_KEY_DEV is NOT set here. Inside the TEE the content key comes from
 # the dstack socket. CONTENT_KEY_DEV is only for local dev outside a TEE.
 
 services:
   redact-backend:
     # Replace with the tag you push to Docker Hub.
-    image: sshreyasnairr/redact-backend:v1
+    image: sshreyasnairr/redact-backend:v5
     restart: unless-stopped
     ports:
       - "4021:4021"
     volumes:
-      # Persist research-store.json and agent-runs.json across restarts.
+      # Persist research-store.json, agent-runs.json, resolver-state.json and disputes.json across restarts.
       - redact-data:/app/data
       # dstack guest-agent socket. The SDK reads the content key and quote here.
       - /var/run/dstack.sock:/var/run/dstack.sock
@@ -29,6 +31,8 @@ services:
       - CONTRACT_ADDRESS=${CONTRACT_ADDRESS}
       - BASE_SEPOLIA_RPC_URL=${BASE_SEPOLIA_RPC_URL}
       - FACILITATOR_URL=${FACILITATOR_URL}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - CONTRACT_DEPLOY_BLOCK=${CONTRACT_DEPLOY_BLOCK}
 
 volumes:
   redact-data:

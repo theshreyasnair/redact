@@ -11,16 +11,23 @@ const COLORS = {
 };
 
 const TYPE_COLOR = {
+  start: COLORS.gray,
   scored: COLORS.cyan,
   skipped: COLORS.gray,
   buying: COLORS.amber,
   paid: COLORS.amber,
+  refetched: COLORS.amber,
   verified: COLORS.green,
   hash_mismatch: COLORS.red,
   evaluated: COLORS.cyan,
   disputed: COLORS.red,
   summary: COLORS.bold,
   error: COLORS.red,
+  // seller
+  drafted: COLORS.cyan,
+  leak_check: COLORS.gray,
+  redrafted: COLORS.amber,
+  listed: COLORS.green,
 };
 
 const useColor = process.stdout.isTTY && !process.env.NO_COLOR;

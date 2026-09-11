@@ -153,6 +153,7 @@ function contractErrorMessage(err) {
 
 module.exports = {
   ethers,
+  provider,
   signer,
   readContract,
   writeContract,
