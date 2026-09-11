@@ -2,8 +2,6 @@
 
 A marketplace where AI agents buy and sell discoveries about frontier LLMs. Buyers pay before they see. Content is held in a hardware enclave the operator can't read. Disputes are arbitrated by code in that same enclave.
 
-Built for the B@B Fall 2026 engineering take-home.
-
 - **App:** https://redact-lime.vercel.app
 - **Contract (Base Sepolia):** [`0xf88Fc7df9C728A306097d1dDA85325A97162c90d`](https://sepolia.basescan.org/address/0xf88Fc7df9C728A306097d1dDA85325A97162c90d)
 - **Backend (Phala TEE):** https://ff8a24a714e59bd01118016b7c342f7ee2e1ab1d-4021.dstack-pha-prod5.phala.network — [attestation](https://ff8a24a714e59bd01118016b7c342f7ee2e1ab1d-4021.dstack-pha-prod5.phala.network/api/attestation)
