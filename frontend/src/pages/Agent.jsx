@@ -164,29 +164,38 @@ function withResolutions(run, resolutions) {
   return extra.length ? [...run.events, ...extra] : run.events;
 }
 
-function RunCard({ run, selected, onSelect, index }) {
+/**
+ * Timestamp order, then arrival order. Events written in the same second keep
+ * the sequence the backend emitted them in (start, scored, paid, verified...).
+ */
+function orderedEvents(events) {
+  return events
+    .map((e, i) => ({ e, i, t: Date.parse(e.ts) || 0, seq: e.seq ?? e.index ?? null }))
+    .sort((a, b) => a.t - b.t || (a.seq != null && b.seq != null ? a.seq - b.seq : a.i - b.i))
+    .map((x) => x.e);
+}
+
+function RunRow({ run, selected, onSelect, index }) {
   const summary = summaryLine(run);
   return (
     <button
       type="button"
       onClick={onSelect}
       style={{ animationDelay: `${index * 40}ms` }}
-      className={`card fade-up flex w-full flex-col gap-2 p-5 text-left ${selected ? "border-line-hover" : ""}`}
+      className={`fade-up flex w-full flex-col gap-1.5 border-b border-line py-4 pr-2 text-left ${
+        selected ? "border-l-2 border-l-accent pl-4 text-ink" : "pl-[18px] text-mute hover:text-ink"
+      }`}
     >
-      <div className="flex items-center justify-between gap-3">
-        <span className="flex items-center gap-2">
-          <span className={`mono text-sm ${selected ? "text-ink" : "text-mute"}`}>{run.runId}</span>
-          <span className="caps">{runRole(run)}</span>
+      <div className="flex items-baseline justify-between gap-3">
+        <span className="flex items-baseline gap-2">
+          <span className="mono text-sm">{run.runId}</span>
+          <span className="text-[13px] text-mute">{runRole(run)}</span>
         </span>
-        <span className="text-xs text-dim">{formatStarted(run.startedAt)}</span>
+        <span className="mono text-xs text-mute">{formatStarted(run.startedAt)}</span>
       </div>
-      {summary ? (
-        <p className="text-sm text-mute">{summary}</p>
-      ) : (
-        <p className="text-sm text-dim">
-          {run.events.length} event{run.events.length === 1 ? "" : "s"} · running
-        </p>
-      )}
+      <p className="text-sm text-mute">
+        {summary || `${run.events.length} event${run.events.length === 1 ? "" : "s"} · running`}
+      </p>
     </button>
   );
 }
@@ -199,14 +208,14 @@ function EventRow({ event }) {
       <span className="mono w-[72px] shrink-0 pt-px text-xs text-dim">{formatTime(event.ts)}</span>
       {isSummary ? (
         <div className="card flex min-w-0 flex-1 flex-col gap-2 p-4">
-          <span className="caps">summary</span>
+          <span className="label">Summary</span>
           <p className="leading-relaxed text-ink">
             <Linkified text={event.message} />
           </p>
         </div>
       ) : (
         <div className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-3 gap-y-1">
-          <span className={`mono shrink-0 text-xs ${color}`}>[{event.type}]</span>
+          <span className={`mono shrink-0 text-xs ${color}`}>{event.type}</span>
           {event.listingId != null && (
             <Link to={`/listing/${event.listingId}`} className="mono shrink-0 text-xs text-mute hover:text-accent">
               #{event.listingId}
@@ -227,17 +236,26 @@ function RunHeader({ run }) {
   const headline = typeof first.goal === "string" && first.goal.length > 0 ? first.goal : first.source ? `Listing ${first.source}` : null;
   return (
     <div className="border-b border-line pb-5">
-      <span className="caps">{role} run</span>
       {headline ? (
         <>
-          <h2 className="serif mt-2 text-3xl leading-tight">{headline}</h2>
-          <div className="mt-2 flex flex-wrap items-center gap-4 text-sm">
-            {first.budget != null && <span className="mono text-mint">{first.budget} USDC budget</span>}
+          <h2 className="serif text-3xl leading-tight">{headline}</h2>
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-mute">
+            <span>{role}</span>
+            {first.budget != null && (
+              <>
+                <span className="text-dim">·</span>
+                <span className="mono text-mint">{first.budget} USDC budget</span>
+              </>
+            )}
+            <span className="text-dim">·</span>
             <span className="mono text-dim">{run.runId}</span>
           </div>
         </>
       ) : (
-        <h2 className="mono mt-2 text-2xl">{run.runId}</h2>
+        <>
+          <h2 className="mono text-2xl">{run.runId}</h2>
+          <div className="mt-2 text-sm text-mute">{role}</div>
+        </>
       )}
     </div>
   );
@@ -249,8 +267,7 @@ function Empty() {
       <HashStream size={420} opacity={0.35} center={(W, H) => ({ x: W / 2, y: H / 2 })} />
       <div className="relative z-10 flex flex-col items-center gap-4">
         <h2 className="serif text-4xl">No agent runs yet</h2>
-        <code className="mono text-sm text-mute">node src/agent.js --goal "..." --budget 0.5</code>
-        <code className="mono text-sm text-mute">node src/seller.js --file ./findings/example.md</code>
+        <p className="text-sm text-mute">Start one with the commands above.</p>
       </div>
     </div>
   );
@@ -286,20 +303,22 @@ export default function Agent() {
   // Most recent run selected by default; keep the selection if that run is still present.
   const selected = runs?.find((r) => r.runId === selectedId) || runs?.[0] || null;
   const resolutions = useResolutions(selected);
-  const timeline = selected ? withResolutions(selected, resolutions) : [];
+  const timeline = selected ? orderedEvents(withResolutions(selected, resolutions)) : [];
 
   return (
     <div className="page mx-auto max-w-[1200px] px-6 py-16">
-      <span className="caps">Agent</span>
-      <h1 className="serif mt-2 text-5xl">Runs</h1>
-      <p className="mt-2 text-sm text-dim">The buyer agent reports every step here. Updates every few seconds while this page is open.</p>
+      <h1 className="serif text-5xl">Runs</h1>
+      <p className="mt-3 text-sm text-mute">The buyer agent reports every step here. Updates every few seconds while this page is open.</p>
+      <pre className="rule-block mono mt-5 overflow-x-auto py-3 text-sm text-mute">
+        {"node src/agent.js --goal \"...\" --budget 0.5\nnode src/seller.js --file ./findings/example.md"}
+      </pre>
       {error && <p className="mt-4 text-sm text-bad">Could not reach the backend. {error}</p>}
 
       {runs === null ? (
         <div className="mt-10 grid grid-cols-1 gap-8 md:grid-cols-[320px_1fr]">
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col">
             {[0, 1, 2].map((i) => (
-              <div key={i} className="card flex flex-col gap-3 p-5">
+              <div key={i} className="flex flex-col gap-3 border-b border-line py-4 pl-[18px]">
                 <SkeletonLine className="w-20" />
                 <SkeletonLine className="w-3/4" />
               </div>
@@ -318,9 +337,9 @@ export default function Agent() {
         </div>
       ) : (
         <div className="mt-10 grid grid-cols-1 gap-8 md:grid-cols-[320px_1fr]">
-          <div className="flex flex-col gap-3 md:sticky md:top-6 md:self-start">
+          <div className="flex flex-col border-t border-line md:sticky md:top-6 md:self-start">
             {runs.map((r, i) => (
-              <RunCard
+              <RunRow
                 key={r.runId}
                 run={r}
                 index={i}

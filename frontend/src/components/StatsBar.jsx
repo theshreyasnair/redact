@@ -11,7 +11,7 @@ async function loadStats() {
 function Stat({ label, value }) {
   return (
     <div className="flex items-baseline gap-2">
-      <span className="caps">{label}</span>
+      <span className="label">{label}</span>
       <span className="mono text-sm">{value == null ? "—" : value.toLocaleString("en-US")}</span>
     </div>
   );

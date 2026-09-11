@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../lib/api";
 import { CATEGORIES, EXPLORER_URL } from "../config";
+import { sentenceCase } from "../lib/format";
 import { useWallet } from "../lib/wallet";
 import { hashContent } from "../lib/contract";
 import RequireWallet from "../components/RequireWallet";
@@ -55,8 +56,8 @@ function SellForm() {
 
   if (result) {
     return (
-      <div className="card fade-up p-8">
-        <span className="caps">Listed</span>
+      <div className="fade-up border-t border-line pt-6">
+        <span className="label">Listed</span>
         <h2 className="serif mt-2 text-4xl">Your research is on-chain.</h2>
         <dl className="mt-6 flex flex-col gap-3 text-sm">
           <div className="flex justify-between gap-4">
@@ -100,7 +101,7 @@ function SellForm() {
         <select className="field" value={form.category} onChange={set("category")}>
           {CATEGORIES.map((c) => (
             <option key={c} value={c}>
-              {c}
+              {sentenceCase(c)}
             </option>
           ))}
         </select>

@@ -7,7 +7,7 @@ import { paidFetch } from "../lib/x402";
 import { hashContent, revertReason, writeContract } from "../lib/contract";
 import { loadPurchase, savePurchase } from "../lib/storage";
 import { fetchOwnedContent } from "../lib/owner";
-import { formatDate, formatUsdc, reputationLabel, sameAddress, shortAddress, shortHash, trustLabel } from "../lib/format";
+import { formatDate, formatUsdc, sameAddress, sentenceCase, shortAddress, shortHash, trustScore } from "../lib/format";
 import HashStream from "../components/HashStream";
 import { SkeletonLine } from "../components/Skeleton";
 
@@ -54,6 +54,17 @@ function RedactedPreview({ description }) {
       <p className="mt-3 text-xs text-mute">Content is held in the enclave until payment clears.</p>
     </div>
   );
+}
+
+/** "7 sales · 3 disputes · 86% trust", or "No sales yet". */
+function sellerLine(rep) {
+  if (!rep || !rep.totalSales) return "No sales yet";
+  const s = rep.totalSales === 1 ? "sale" : "sales";
+  const d = rep.totalDisputes === 1 ? "dispute" : "disputes";
+  const open = Number(rep.totalDisputes || 0) - Number(rep.disputesLost || 0);
+  const parts = [`${rep.totalSales} ${s}`, `${rep.totalDisputes} ${d}`, `${Math.round(trustScore(rep))}% trust`];
+  if (open > 0) parts.push(`${open} open`);
+  return parts.join(" · ");
 }
 
 export default function ListingDetail() {
@@ -268,8 +279,8 @@ export default function ListingDetail() {
             </div>
           ) : (
             <>
-              <span className="caps">{listing.category}</span>
-              <h1 className="serif mt-3 text-4xl leading-[1.05] md:text-5xl">{listing.title}</h1>
+              <h1 className="serif text-4xl leading-[1.05] md:text-5xl">{listing.title}</h1>
+              <p className="label mt-3">{sentenceCase(listing.category)}</p>
               <p className="mt-6 max-w-[640px] text-base leading-relaxed text-mute">{listing.description}</p>
               <p className="mt-6 text-xs text-dim">
                 Listed {formatDate(listing.timestamp)} · Listing <span className="mono">#{listing.id}</span>
@@ -360,30 +371,26 @@ export default function ListingDetail() {
               <>
                 <div className="mono text-3xl text-mint">{formatUsdc(listing.price)}</div>
 
-                <div className="mt-6 flex flex-col gap-2 text-sm">
-                  <div className="flex items-center justify-between">
-                    <span className="text-mute">Seller</span>
+                <div className="mt-6">
+                  <p className="mono text-sm">
                     <a
                       href={`${EXPLORER_URL}/address/${listing.listedBy || listing.seller}`}
                       target="_blank"
                       rel="noreferrer"
-                      className="mono hover:text-accent"
+                      className="hover:text-accent"
                     >
                       {shortAddress(listing.listedBy || listing.seller)}
                     </a>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-mute">Reputation</span>
-                    <span>{reputationLabel(listing.reputation)}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-mute">Trust score</span>
-                    <span className="mono">{listing ? trustLabel(listing.reputation) : "—"}</span>
-                  </div>
+                    {" · "}
+                    {sellerLine(listing.reputation)}
+                  </p>
+                  <p className="mt-2 text-[13px] text-mute">
+                    Reputation is per seller address. This prototype lists everything from one backend wallet.
+                  </p>
                 </div>
 
                 <div className="mt-6 border-t border-line pt-5">
-                  <span className="caps">How this works</span>
+                  <span className="label">How this works</span>
                   <ol className="mt-3 flex flex-col gap-2 text-sm text-mute">
                     <li className="flex gap-3">
                       <span className="mono text-dim">1</span> Pay with USDC through x402. One signature, no gas.
@@ -399,7 +406,7 @@ export default function ListingDetail() {
                 </div>
 
                 <div className="mt-6 border-t border-line pt-5">
-                  <span className="caps">On-chain commitment</span>
+                  <span className="label">On-chain commitment</span>
                   <a
                     href={`${EXPLORER_URL}/address/${listing.seller}`}
                     target="_blank"
@@ -439,9 +446,7 @@ export default function ListingDetail() {
                     </>
                   ) : revealed || ownsOnChain ? (
                     <>
-                      <div className="rounded-md border border-line px-4 py-3 text-center text-sm text-mute">
-                        You own this research.
-                      </div>
+                      <p className="text-sm text-mute">You own this research.</p>
                       {!revealed && (
                         <button
                           className="btn btn-secondary mt-3 w-full"

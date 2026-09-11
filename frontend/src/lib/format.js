@@ -51,3 +51,21 @@ export function trustLabel(rep) {
 export function sameAddress(a, b) {
   return Boolean(a && b && a.toLowerCase() === b.toLowerCase());
 }
+
+/** "Capability Discoveries" -> "Capability discoveries". All-caps words such as "IP" are kept. */
+export function sentenceCase(text) {
+  if (!text) return "";
+  return text
+    .split(" ")
+    .map((w, i) => (i === 0 || w === w.toUpperCase() ? w : w.toLowerCase()))
+    .join(" ");
+}
+
+/** Cuts text at a word boundary near `max` characters. No ellipsis: the bars stand in for the rest. */
+export function truncateWords(text, max) {
+  const t = (text || "").trim();
+  if (t.length <= max) return t;
+  const cut = t.slice(0, max);
+  const at = cut.lastIndexOf(" ");
+  return (at > max * 0.6 ? cut.slice(0, at) : cut).replace(/[,;:.\-–—]+$/, "");
+}

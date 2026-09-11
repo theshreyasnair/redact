@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../lib/api";
 import { CATEGORIES } from "../config";
+import { sentenceCase } from "../lib/format";
 import HashStream from "../components/HashStream";
 import ListingCard from "../components/ListingCard";
 import StatsBar from "../components/StatsBar";
@@ -70,7 +71,7 @@ export default function Marketplace() {
                 tab === t ? "border-accent text-ink" : "border-transparent text-mute hover:text-ink"
               }`}
             >
-              {t}
+              {sentenceCase(t)}
             </button>
           ))}
         </div>
@@ -84,10 +85,10 @@ export default function Marketplace() {
         ) : visible.length === 0 ? (
           <EmptyState
             title="No listings yet"
-            hint={tab === "All" ? "Be the first to sell a finding." : `Nothing under ${tab} right now.`}
+            hint={tab === "All" ? "Be the first to sell a finding." : `Nothing under ${sentenceCase(tab)} right now.`}
           />
         ) : (
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <div className="index">
             {visible.map((l, i) => (
               <ListingCard key={l.id} listing={l} index={i} />
             ))}

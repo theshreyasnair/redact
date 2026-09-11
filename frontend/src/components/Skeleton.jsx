@@ -1,13 +1,14 @@
 export function SkeletonCard() {
   return (
-    <div className="card flex flex-col gap-4 p-6">
-      <div className="skeleton h-3 w-24" />
-      <div className="skeleton h-7 w-4/5" />
-      <div className="skeleton h-4 w-full" />
-      <div className="skeleton h-4 w-2/3" />
-      <div className="mt-2 flex justify-between">
-        <div className="skeleton h-4 w-20" />
-        <div className="skeleton h-4 w-28" />
+    <div className="index-row">
+      <div className="flex flex-col gap-3">
+        <div className="skeleton h-7 w-3/5" />
+        <div className="skeleton h-4 w-full" />
+        <div className="skeleton h-4 w-1/2" />
+      </div>
+      <div className="flex flex-col gap-2 sm:items-end">
+        <div className="skeleton h-4 w-24" />
+        <div className="skeleton h-3 w-20" />
       </div>
     </div>
   );
@@ -15,7 +16,7 @@ export function SkeletonCard() {
 
 export function SkeletonGrid({ count = 6 }) {
   return (
-    <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+    <div className="index">
       {Array.from({ length: count }, (_, i) => (
         <SkeletonCard key={i} />
       ))}
