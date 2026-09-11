@@ -186,7 +186,7 @@ export default function HashStream({
       ctx.closePath();
       ctx.clip();
       ctx.transform(a, b, c, d, e, f);
-      ctx.font = `${FONT_SIZE}px "JetBrains Mono", ui-monospace, monospace`;
+      ctx.font = `${FONT_SIZE}px "IBM Plex Mono", ui-monospace, monospace`;
       ctx.textBaseline = "middle";
 
       const base = face.color;
