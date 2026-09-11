@@ -12,9 +12,9 @@ export default function ListingCard({ listing, index = 0 }) {
       <h3 className="serif text-2xl leading-tight">{listing.title}</h3>
       <p className="clamp-2 text-sm leading-relaxed text-mute">{listing.description || "No description."}</p>
       <div className="redaction-row" aria-hidden="true">
-        <span style={{ width: 42 }} />
-        <span style={{ width: 28 }} />
-        <span style={{ width: 56 }} />
+        <span style={{ width: 48 }} />
+        <span style={{ width: 72 }} />
+        <span style={{ width: 36 }} />
       </div>
       <div className="mt-auto flex items-center justify-between pt-3 text-sm">
         <span className="mono text-mint">{formatUsdc(listing.price)}</span>

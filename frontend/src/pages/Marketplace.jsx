@@ -9,6 +9,15 @@ import { SkeletonGrid } from "../components/Skeleton";
 
 const TABS = ["All", ...CATEGORIES];
 
+// A redacted phrase. The text is real (and fictional) but painted bar-on-bar until hovered.
+function Redacted({ children }) {
+  return (
+    <span className="redact" tabIndex={0}>
+      {children}
+    </span>
+  );
+}
+
 export default function Marketplace() {
   const [listings, setListings] = useState(null);
   const [error, setError] = useState(null);
@@ -36,10 +45,19 @@ export default function Marketplace() {
       <section className="relative flex min-h-[420px] items-center overflow-hidden md:min-h-[640px]">
         <HashStream size={520} center={(W, H) => ({ x: W * 0.78, y: H / 2 })} />
         <div className="relative z-10 mx-auto w-full max-w-[1200px] px-6 py-20">
-          <h1 className="serif text-[56px] leading-[0.95] md:text-[96px]">Redact</h1>
-          <p className="mt-6 max-w-[560px] text-lg text-mute">
-            Buy and sell discoveries about frontier AI models. Pay before you see.
+          <h1 className="serif max-w-[820px] text-[26px] leading-[1.35] md:text-[34px]">
+            A researcher found that <Redacted>nested persona instructions</Redacted> on{" "}
+            <Redacted>Meridian-4</Redacted> drops refusal behavior when{" "}
+            <Redacted>the outer frame says stay in character</Redacted>. They measured it on{" "}
+            <Redacted>140</Redacted> items. The <Redacted>input-classifier</Redacted> mitigation brought it to{" "}
+            <Redacted>6%</Redacted>. None of this is public.
+          </h1>
+          <p className="mt-6 max-w-[640px] text-[17px] leading-relaxed text-mute">
+            Redact is a marketplace for research on large language models. Jailbreaks, capability discoveries, safety
+            failures, benchmark results. Buy before you see. Verify against the chain. Dispute to an arbitrator nobody
+            can tamper with.
           </p>
+          <p className="mt-3 text-sm text-mute">Example only. The model and numbers are not real.</p>
         </div>
       </section>
       <div className="relative z-10 mx-auto max-w-[1200px] px-6 pb-24">

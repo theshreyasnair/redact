@@ -24,6 +24,38 @@ function TxLink({ hash, children }) {
   );
 }
 
+// Widths (px) for two lines of redacted "words". Fixed so the block does not jitter between renders.
+const PREVIEW_BARS = [
+  [58, 34, 82, 26, 48],
+  [40, 70, 30, 56],
+];
+
+function firstSentence(text) {
+  const t = (text || "").trim();
+  if (!t) return "";
+  const m = t.match(/^[\s\S]*?[.!?](?=\s|$)/);
+  return m ? m[0] : t;
+}
+
+// What the buyer sees before paying: the opening sentence, then bars where the rest would be.
+function RedactedPreview({ description }) {
+  return (
+    <div className="mb-4">
+      <p className="preview-text text-sm leading-relaxed">{firstSentence(description) || "No description."}</p>
+      <div className="mt-2 flex flex-col gap-1.5" aria-hidden="true">
+        {PREVIEW_BARS.map((line, i) => (
+          <div key={i} className="preview-bars">
+            {line.map((w, j) => (
+              <span key={j} style={{ width: w }} />
+            ))}
+          </div>
+        ))}
+      </div>
+      <p className="mt-3 text-xs text-mute">Content is held in the enclave until payment clears.</p>
+    </div>
+  );
+}
+
 export default function ListingDetail() {
   const { id } = useParams();
   const wallet = useWallet();
@@ -429,13 +461,16 @@ export default function ListingDetail() {
                       )}
                     </>
                   ) : (
-                    <button
-                      className="btn btn-primary w-full"
-                      onClick={purchase}
-                      disabled={isDelisted || stage === "signing" || stage === "fetching"}
-                    >
-                      {isDelisted ? "No longer for sale" : !wallet.isConnected ? "Connect wallet to purchase" : buttonLabel}
-                    </button>
+                    <>
+                      <RedactedPreview description={listing.description} />
+                      <button
+                        className="btn btn-primary w-full"
+                        onClick={purchase}
+                        disabled={isDelisted || stage === "signing" || stage === "fetching"}
+                      >
+                        {isDelisted ? "No longer for sale" : !wallet.isConnected ? "Connect wallet to purchase" : buttonLabel}
+                      </button>
+                    </>
                   )}
                   {purchaseError && <p className="mt-3 text-xs text-bad">{purchaseError}</p>}
                 </div>
